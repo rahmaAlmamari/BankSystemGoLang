@@ -1,0 +1,72 @@
+networks:
+  banksystem-network:
+
+volumes:
+  banksystem-db-data:
+  keycloak-db-data:
+
+services:
+
+  banksystem-db:
+    image: postgres:17.5-alpine
+    container_name: banksystem-db
+    restart: always
+    environment:
+      POSTGRES_DB: banksystem
+      POSTGRES_USER: banksystem
+      POSTGRES_PASSWORD: banksystem
+    volumes:
+      - banksystem-db-data:/var/lib/postgresql/data
+    ports:
+      - "55432:5432"
+
+    networks:
+      - banksystem-network
+
+  keycloak-db:
+    image: postgres:17.5-alpine
+    container_name: keycloak-db
+    restart: always
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - banksystem-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.5
+    container_name: keycloak
+    command: start-dev
+    restart: always
+    depends_on:
+      - keycloak-db
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+       - "18080:8080"
+
+    networks:
+      - banksystem-network
+
+  banksystem-server:
+    image: golang:1.25-alpine
+    container_name: banksystem-server
+    working_dir: /app
+    volumes:
+      - ./server:/app
+    command: sh -c "go mod download && go run ."
+    depends_on:
+      - banksystem-db
+    ports:
+      - "1323:1323"
+    networks:
+      - banksystem-network
